@@ -7,10 +7,10 @@ import pandas as pd
 import numpy as np
 from google.cloud import storage
 import networkx as nx
-from snowFlakeAccess import SnowFlakeAccess
-from bqAccess import BqAccess
-from colorAccess import ColorAccess
-from updateSchema import getYamlConfig
+from mikesnowflake.access.snowFlakeAccess import SnowFlakeAccess
+from mikesnowflake.access.bqAccess import BqAccess
+from mikesnowflake.access.colorAccess import ColorAccess
+from mikesnowflake.util.yamlUtil import getYamlConfig
 
 
 GIT_DIR = '/Users/mike.herrera/workspace/data-sustain-snowflake-etl'
@@ -19,7 +19,7 @@ GIT_DIR = '/Users/mike.herrera/workspace/data-sustain-snowflake-etl'
 class SnowFlakeAnalysis(object):
     """
     """
-    def __init__(self, startDate, endDate, gitDir=GIT_DIR, verbose=True, excludeEtl=True):
+    def __init__(self, startDate, endDate, user, password, gitDir=GIT_DIR, verbose=True, excludeEtl=True):
         """
         """
         if verbose:
@@ -44,7 +44,7 @@ class SnowFlakeAnalysis(object):
         self.queryTypeColors = dict(zip(cols, ca.getColors(len(cols))))
 
         # this is extra info to allow us to cross reference SnowFlake tables and views.
-        self.sfa = SnowFlakeAccess()
+        self.sfa = SnowFlakeAccess(user, password)
         self.snowFlakeTables = self.sfa.getTables()
         self.snowFlakeViewDefs = self.sfa.getViews()
         self.snowFlakeViews = self.snowFlakeViewDefs['name'].tolist()
