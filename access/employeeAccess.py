@@ -19,7 +19,7 @@ class EmployeeAccess(object):
 
     @classmethod
     def __pingLdapServer(cls):
-        """
+        """this is an internal method to run the ldap command and obtain all openx users
         """
         cmd = ['ldapsearch', '-b', 'ou=Users,dc=openx,dc=org', '-h',
                'directory.prod.gcp.openx.org', '-x', '-p', '389']
@@ -29,7 +29,7 @@ class EmployeeAccess(object):
         return out
 
     def __getLdapUsers(self):
-        """
+        """this will return openx users metadata in a data frame.
         """
         # collect a list of active openx employee emails, taking into account
         # alternate names to sync with snowflake
@@ -73,7 +73,7 @@ class EmployeeAccess(object):
         return df
 
     def __getEmployees(self):
-        """
+        """this will obtain all openx employees
         """
         employees = self.ldapUsers[(self.ldapUsers['hire_date'].notnull()) &
                                    (~self.ldapUsers['is_headless']) &
@@ -84,7 +84,7 @@ class EmployeeAccess(object):
         return employees.reset_index(drop=True)
 
     def __getEmployeeGraph(self):
-        """
+        """this will return a networkx directed graph of openx employees with their managers.
         """
         G = nx.DiGraph()
         for i in self.employees.index:

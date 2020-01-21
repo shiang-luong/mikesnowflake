@@ -6,28 +6,46 @@ import pandas as pd
 import snowflake.connector
 
 
+# CACHE_DIR is where we store cached schema tables and views which sit by default right outside of the main project.
+FILE_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_DIR = os.path.abspath(os.path.join(FILE_DIR, '..'))
+CACHE_DIR = os.path.abspath(os.path.join(PROJECT_DIR, '..', 'cached_history'))
+
+
 class SnowFlakeAccess(object):
-    """the new snowflake connection class that uses pandas
+    """snowflake connection class that uses pandas
     """
-    def __init__(self):
-        """
+    def __init__(self, user, password, role='ACCOUNTADMIN', schema='mstr_datamart', database='PROD', warehouse='PROD_OTHER_WH',
+                 cacheDir=CACHE_DIR):
+        """init
+
+        Args:
+            user(str): the snowflake username
+            password(str): the corresponding snowflake password
+            role(str, optional): the user's role (defaults to 'ACCOUNTADMIN')
+            schema(str, optional): snowflake schema (defaults to 'mstr_datamart')
+            database(str, optional): snowflake database (defaults to 'PROD')
+            warehouse(str, optional): snowflake warehouse (defaults to 'PROD_OTHER_WH')
+            cacheDir(str, optional): the path to cached schema tables and views (defaults to subdirectory in this project)
         """
         self.kwargs = {'account': 'openx',
                        'region': 'us-east-1',
-                       'schema': 'mstr_datamart',
+                       'schema': schema,
                        'autocommit': False,
                        'paramstyle': 'qmark',
                        'timezone': 'UTC',
-                       'database': 'PROD',
-                       'warehouse': 'PROD_ETL_WH',
-                       'user': '',  # fill in with your db username
-                       'password': '',  # fill in with your db password
-                       'role': ''}  # fill in with your db role
-
-        self.cacheDir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cached_history')
+                       'database': database,
+                       'warehouse': warehouse,
+                       'user': user,
+                       'password': password,
+                       'role': role}
+        self.cacheDir = cacheDir
 
     def rawQuery(self, sql):
-        """
+        """this method allows users to execute raw queries.
+
+        Args:
+            sql(str): the sql statement you want to execute.
         """
         try:
             connection = snowflake.connector.connect(**self.kwargs)
@@ -37,7 +55,7 @@ class SnowFlakeAccess(object):
         return df
 
     def getViews(self):
-        """
+        """this will read a cached file of view definitions currently in prod.
         """
         fileName = os.path.join(self.cacheDir, 'schema', 'views.csv')
         df = pd.read_csv(fileName, sep='|', index_col=0)
@@ -45,7 +63,7 @@ class SnowFlakeAccess(object):
         return df
 
     def getTables(self):
-        """
+        """this will read in a cached file of table names currently in prod.
         """
         fileName = os.path.join(self.cacheDir, 'schema', 'tables.csv')
         df = pd.read_csv(fileName, sep='|', index_col=0)
@@ -53,7 +71,7 @@ class SnowFlakeAccess(object):
         return sorted(df['TABLE_NAME'].tolist())
 
     def backupSchema(self):
-        """
+        """this will make copies of the current view and table cached files with a timestamp.
         """
         print('backing up files')
         td = datetime.datetime.today()
@@ -73,7 +91,7 @@ class SnowFlakeAccess(object):
         print("copied %s to %s" % (viewFile, newViewFile))
 
     def updateSchema(self):
-        """
+        """this will ping snowflake db for views and tables, saving them to a location on disk.
         """
         schemaDir = os.path.join(self.cacheDir, 'schema')
 
