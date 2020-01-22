@@ -1,18 +1,21 @@
-import argparse
 import os
+import sys
+
+PROJ_DIR = os.path.dirname(os.path.abspath(os.path.join(__file__, '..', '..')))
+sys.path.append(PROJ_DIR)
+
 import argparse
 import datetime
 import pandas as pd
 from google.cloud import storage
 from google.cloud import bigquery
-from snowFlakeAccess import SnowFlakeAccess
-from bqAccess import BqAccess
+from mikesnowflake.access.snowFlakeAccess import SnowFlakeAccess, CACHE_DIR
+from mikesnowflake.access.bqAccess import BqAccess
 
 
 os.nice(20)
 
 
-CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cached_history', 'query_history')
 PROJECT_ID = 'ox-data-devint'
 BUCKET_ID = 'snowflake2bigquery'
 DATASET_ID = 'snowflake_test'
@@ -21,10 +24,10 @@ DATASET_ID = 'snowflake_test'
 class Loader(object):
     """this is a loader from snowflake usage tables into bigquery"""
 
-    def __init__(self, projectId=PROJECT_ID, bucketId=BUCKET_ID, cacheDir=CACHE_DIR, datasetId=DATASET_ID):
+    def __init__(self, user, password, projectId=PROJECT_ID, bucketId=BUCKET_ID, cacheDir=CACHE_DIR, datasetId=DATASET_ID):
         """init"""
         self.__bqa = BqAccess()
-        self.__sfa = SnowFlakeAccess()
+        self.__sfa = SnowFlakeAccess(user, password)
         self.__snowFlakeTables = self.__sfa.getTables()
         self.__embeddedTableNames = self.__getEmbeddedTableNames()
 
@@ -205,7 +208,9 @@ def runLoad(args):
     if args.startDate:
         startDate = datetime.datetime.strptime(args.startDate, '%Y%m%d')
 
-    loader = Loader()
+    user = '####'
+    password = '####'
+    loader = Loader(user, password)
     for when in pd.date_range(startDate, endDate):
         if args.tableOverride:
             loader.saveTableHistory(when, tableOverride=args.tableOverride, uploadToBq=True)
