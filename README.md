@@ -74,3 +74,11 @@ For certain tables, I used an interactive bokeh visualization of a networkx dire
 ```
 notebooks\networkx_tests.ipynb
 ```
+
+Setup
+----
+the notebooks and bin scripts won't run well unless you install the following requirements:
+
+```
+requirements.txt
+```
