@@ -17,10 +17,22 @@ GIT_DIR = '/Users/mike.herrera/workspace/data-sustain-snowflake-etl'
 
 
 class SnowFlakeAnalysis(object):
-    """
+    """this is mike's snowflake analysis class.
     """
     def __init__(self, startDate, endDate, user, password, gitDir=GIT_DIR, verbose=True, excludeEtl=True):
         """
+        Args:
+            startDate(datetime.datetime): the start of the analysis period
+            endDate(datetime.datetime): the end of the analysis period
+            user(str): snowflake username
+            password(str): snowflake password
+            gitDir(str, optional): the file directory path location of the git repo for https://github.com/openx/data-sustain-snowflake-etl.
+            verbose(bool, optional): prints verbose statements
+            excludeEtl(bool, optional): removes SNOWFLAKE_PROD_ETL from queries to reduce table hit noise
+
+        Notes:
+            I'm sure that there's a python library to parse github repos. However, I didn't feel like creating it. So instead, I locally
+            downloaded them and used them as references in file paths.
         """
         if verbose:
             print('initializing snowflake analysis')
@@ -101,7 +113,10 @@ class SnowFlakeAnalysis(object):
             print('init complete')
 
     def __getRollupGraph(self):
-        """
+        """this will return a graph of table names associated with rullup processes
+
+        Returns:
+            networkx.DiGraph: a directed graph of table names and associated rollups
         """
         R = nx.DiGraph()
         odfiFiles = sorted(glob(os.path.join(self.gitDir, 'jobs', 'odfi_etls', '*.yaml')))
@@ -128,6 +143,9 @@ class SnowFlakeAnalysis(object):
 
     def __getGcsTables(self):
         """this will obtain a list of tables that are unloaded into GCS buckets
+
+        Returns:
+            list of str: a list of GCS table names
         """
         client = storage.Client(project='ox-data-prod')
         bucket = client.get_bucket('ox-data-prod-us-central1-reports')
@@ -137,10 +155,20 @@ class SnowFlakeAnalysis(object):
         return [os.path.basename(p[:-1]).upper() for p in response['prefixes']]
 
     def __getHitBreakdown(self):
+        """Get top tables hits for all activity (excluding ETL user) and review tables with specific select hits.
+
+        Returns:
+            pd.DataFrame: a data frame of tables and corresponding hits. See Notes.
+
+        Notes:
+            The resulting data frame will have the following columns:
+            
+            'table_name' - the name of the table in snowflake
+            'insert' - the collected count of insert-like statements made
+            'select' - the collected count of select-like statements made
+            'admin' - the collected count of db administrative statements made
+            'describe' - the collected count of describe-like statements made
         """
-        """
-        # get top tables hits for all activity (excluding mike) and review tables with specific select hits
-        # display by "strongest" query types with gcs tables and manual exceptions labeled in red if they are shown at all
         sql = ("SELECT th.table_name, th.query_type, SUM(th.hits) AS hits "
                "FROM (SELECT distinct table_name, query_type, query_id, 1 AS hits " +
                "FROM snowflake_test.table_history " +
@@ -166,7 +194,10 @@ class SnowFlakeAnalysis(object):
         return df[self.queryTypes.keys()]
 
     def __getViewDepGraph(self):
-        """
+        """this will return a graph of table names associated with view definitions
+
+        Returns:
+            networkx.DiGraph: a directed graph of table names and associated views
         """
         embeddedTableNames = {}  # this will be a dictionary of table names that are substrings of other table names
         for t1 in self.snowFlakeTables:

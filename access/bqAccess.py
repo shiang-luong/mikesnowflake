@@ -32,8 +32,9 @@ class BqAccess(object):
         """this will delete query history from ox-data-devint.snowflake_test.table_history
 
         Args:
-            startDate(datetime.datetime)
-            endDate(datetime.datetime)
+            startDate(datetime.datetime): start date for the period
+            endDate(datetime.datetime): end date for the period
+            writeToDb(bool, optional): if True, we will delete from the bq database (used in bin/loadHistory.py)
         """
         sql = ("DELETE FROM snowflake_test.table_history " +
                "WHERE query_date = '%s' " % when.date())

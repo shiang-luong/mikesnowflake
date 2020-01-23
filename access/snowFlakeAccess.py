@@ -45,6 +45,9 @@ class SnowFlakeAccess(object):
 
         Args:
             sql(str): the sql statement you want to execute.
+
+        Returns:
+            DataFrame: a pandas.DataFrame of the results
         """
         try:
             connection = snowflake.connector.connect(**self.kwargs)
@@ -55,6 +58,9 @@ class SnowFlakeAccess(object):
 
     def getViews(self):
         """this will read a cached file of view definitions currently in prod.
+
+        Returns:
+            DataFrame: a pandas.DataFrame of the results
         """
         fileName = os.path.join(self.cacheDir, 'schema', 'views.csv')
         df = pd.read_csv(fileName, sep='|', index_col=0)
@@ -63,6 +69,9 @@ class SnowFlakeAccess(object):
 
     def getTables(self):
         """this will read in a cached file of table names currently in prod.
+
+        Returns:
+            list of str: a list of table names
         """
         fileName = os.path.join(self.cacheDir, 'schema', 'tables.csv')
         df = pd.read_csv(fileName, sep='|', index_col=0)
