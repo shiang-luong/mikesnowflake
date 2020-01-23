@@ -8,8 +8,7 @@ import snowflake.connector
 
 # CACHE_DIR is where we store cached schema tables and views which sit by default right outside of the main project.
 FILE_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_DIR = os.path.abspath(os.path.join(FILE_DIR, '..'))
-CACHE_DIR = os.path.abspath(os.path.join(PROJECT_DIR, '..', 'cached_history'))
+CACHE_DIR = os.path.abspath(os.path.join(FILE_DIR, '..', 'cached_history'))
 
 
 class SnowFlakeAccess(object):
