@@ -34,7 +34,7 @@ configparser==4.0.2
 confuse==1.0.0
 cookiecutter==1.6.0
 crcmod==1.7
-cryptography==2.1.4
+cryptography==2.3
 cycler==0.10.0
 daal==2019.0
 dask==2.8.1
