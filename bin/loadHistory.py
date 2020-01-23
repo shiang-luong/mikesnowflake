@@ -9,7 +9,7 @@ import datetime
 import pandas as pd
 from google.cloud import storage
 from google.cloud import bigquery
-from mikesnowflake.access.snowFlakeAccess import SnowFlakeAccess, CACHE_DIR
+from mikesnowflake.access.snowFlakeAccess import SnowFlakeAccess
 from mikesnowflake.access.bqAccess import BqAccess
 
 
@@ -24,14 +24,14 @@ DATASET_ID = 'snowflake_test'
 class Loader(object):
     """this is a loader from snowflake usage tables into bigquery"""
 
-    def __init__(self, user, password, projectId=PROJECT_ID, bucketId=BUCKET_ID, cacheDir=CACHE_DIR, datasetId=DATASET_ID):
+    def __init__(self, user, password, projectId=PROJECT_ID, bucketId=BUCKET_ID, datasetId=DATASET_ID):
         """init"""
         self.__bqa = BqAccess()
         self.__sfa = SnowFlakeAccess(user, password)
         self.__snowFlakeTables = self.__sfa.getTables()
         self.__embeddedTableNames = self.__getEmbeddedTableNames()
 
-        self.__cacheDir = cacheDir
+        self.__cacheDir = self.__sfa.cacheDir
 
         self.__projectId = projectId
         self.__bucketId = bucketId

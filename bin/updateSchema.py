@@ -30,7 +30,7 @@ def main(user, password):
     sfa.updateSchema()
 
     # update yaml config dependencies
-    fileDir = '/Users/mike.herrera/notebooks/snowflake/cached_history/jobs'
+    fileDir = os.path.join(sfa.cacheDir, 'jobs')
     yamlFile = os.path.join(fileDir, 'yaml.csv')
 
     td = datetime.datetime.today()
