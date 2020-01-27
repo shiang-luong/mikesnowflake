@@ -115,6 +115,8 @@ class SnowFlakeAnalysis(object):
             networkx.DiGraph: a directed graph of table names and associated rollups
         """
         R = nx.DiGraph()
+
+        # parse odfi rollups
         odfiFiles = sorted(glob(os.path.join(self.gitDir, 'jobs', 'odfi_etls', '*.yaml')))
         for f in odfiFiles:
             data = getYamlConfig(f)
@@ -134,6 +136,34 @@ class SnowFlakeAnalysis(object):
                     if target not in R.nodes():
                         R.add_node(target)
                     R.add_edge(source, target)
+
+        # parse daily rollups
+        dailyFile = os.path.join(self.gitDir, 'jobs', 'daily_rollups', 'daily_rollups.yaml')
+        data = getYamlConfig(dailyFile)
+        for key in ['ROLL_SQLS', 'ROLL_ADVT_SQLS']:
+            for elem in data[key]:
+                target = elem['label'].upper()
+                source = elem['sql'].split('FROM ')[1].strip().split(' ')[0].upper()
+                if source not in R.nodes():
+                    R.add_node(source)
+                if target not in R.nodes():
+                    R.add_node(target)
+                R.add_edge(source, target)
+
+        # parse monthly rollups
+        monthlyFile = os.path.join(self.gitDir, 'jobs', 'monthly_rollups', 'monthly_rollups.yaml')
+        data = getYamlConfig(monthlyFile)
+        for key in ['ROLL_SQLS', 'ROLL_ADVT_SQLS']:
+            for elem in data[key]:
+                if 'delete' in elem['label']:
+                    continue
+                target = elem['label'].upper()
+                source = elem['sql'].split('FROM ')[1].strip().split(' ')[0].upper()
+                if source not in R.nodes():
+                    R.add_node(source)
+                if target not in R.nodes():
+                    R.add_node(target)
+                R.add_edge(source, target)
 
         return R
 
