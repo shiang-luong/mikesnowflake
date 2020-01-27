@@ -79,10 +79,6 @@ class SnowFlakeAnalysis(object):
         self.hitBreakdown = self.__getHitBreakdown()
 
         if verbose:
-            print('getting repo status')
-        self.repoStatus = self.__getRepoStatus()
-
-        if verbose:
             print('getting yaml info')
         self.yamlInfo = self.__getYamlInfo()
 
@@ -226,21 +222,6 @@ class SnowFlakeAnalysis(object):
                             G.add_node(t)
                         G.add_edge(t, v)
         return G
-
-    def __getRepoStatus(self):
-        """
-        """
-        data = []
-        for tableName in self.snowFlakeTables:
-            folderName = 'tables'
-            isView = tableName in self.snowFlakeViews
-            if isView:
-                folderName = 'views'
-            fileName = os.path.join(self.gitDir, 'schema', 'mstr_datamart', folderName, '%s.sql' % tableName.lower())
-            data.append([tableName, isView, fileName, os.path.isfile(fileName)])
-        repo = pd.DataFrame(data, columns=['table_name', 'is_view', 'file', 'in_git']).set_index('table_name')
-
-        return repo
 
     def __getYamlInfo(self):
         """

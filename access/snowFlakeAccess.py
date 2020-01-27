@@ -63,6 +63,7 @@ class SnowFlakeAccess(object):
             DataFrame: a pandas.DataFrame of the results
         """
         fileName = os.path.join(self.cacheDir, 'schema', 'views.csv')
+        print('reading files from %s' % fileName)
         df = pd.read_csv(fileName, sep='|', index_col=0)
 
         return df
@@ -74,6 +75,7 @@ class SnowFlakeAccess(object):
             list of str: a list of table names
         """
         fileName = os.path.join(self.cacheDir, 'schema', 'tables.csv')
+        print('reading files from %s' % fileName)
         df = pd.read_csv(fileName, sep='|', index_col=0)
 
         return sorted(df['TABLE_NAME'].tolist())
