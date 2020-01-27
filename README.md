@@ -1,4 +1,3 @@
-
 Mike Herrera's snowflake analysis repo for the data team.
 ==========
 This repo was created in an effort to clean up the set of unused tables in SnowFlake's PROD.MSTR_DATAMART schema.
