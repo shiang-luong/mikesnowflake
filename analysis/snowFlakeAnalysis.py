@@ -56,7 +56,7 @@ class SnowFlakeAnalysis(object):
         self.queryTypeColors = dict(zip(cols, ca.getColors(len(cols))))
 
         # this is extra info to allow us to cross reference SnowFlake tables and views.
-        self.sfa = SnowFlakeAccess(user, password)
+        self.sfa = SnowFlakeAccess(user, password, verbose=verbose)
         self.snowFlakeTables = self.sfa.getTables()
         self.snowFlakeViewDefs = self.sfa.getViews()
         self.snowFlakeViews = self.snowFlakeViewDefs['name'].tolist()
@@ -85,7 +85,7 @@ class SnowFlakeAnalysis(object):
         # get all dep graphs
         if verbose:
             print('getting job dependency directed graph of dependent table names')
-            self.jobGraph = self.__getJobDepGraph()
+        self.jobGraph = self.__getJobDepGraph()
 
         if verbose:
             print('created view directed graph of dependent table names')
@@ -96,9 +96,13 @@ class SnowFlakeAnalysis(object):
             print('created rollup directed graph of dependent table names')
         self.rollupGraph = self.__getRollupGraph()
 
+        # create total table dependency graph
+        if verbose:
+            print('created total table dependency graph')
+        self.tableGraph = nx.compose(nx.compose(self.jobGraph, self.viewGraph), self.rollupGraph)
         if verbose:
             print('calculating tablename dependency degrees')
-            self.tableDegrees = self.__getTableDegrees()
+        self.tableDegrees = pd.Series(dict(self.tableGraph.degree())).reindex(self.snowFlakeTables).fillna(0)
 
         if verbose:
             print('getting cronjob count by table')
@@ -348,9 +352,3 @@ class SnowFlakeAnalysis(object):
             G.add_edge(tableName, job)
 
         return G
-
-    def __getTableDegrees(self):
-        """
-        """
-        G = nx.compose(nx.compose(self.jobGraph, self.viewGraph), self.rollupGraph)
-        return pd.Series(dict(G.degree())).reindex(self.snowFlakeTables).fillna(0)
