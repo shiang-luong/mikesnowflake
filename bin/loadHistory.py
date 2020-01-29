@@ -20,11 +20,15 @@ PROJECT_ID = 'ox-data-devint'
 BUCKET_ID = 'snowflake2bigquery'
 DATASET_ID = 'snowflake_test'
 
+# snowflake credentials
+USER = ''
+PASSWORD = ''
+
 
 class Loader(object):
     """this is a loader from snowflake usage tables into bigquery"""
 
-    def __init__(self, user, password, projectId=PROJECT_ID, bucketId=BUCKET_ID, datasetId=DATASET_ID):
+    def __init__(self, user=USER, password=PASSWORD, projectId=PROJECT_ID, bucketId=BUCKET_ID, datasetId=DATASET_ID):
         """init"""
         self.__bqa = BqAccess()
         self.__sfa = SnowFlakeAccess(user, password)
@@ -208,9 +212,7 @@ def runLoad(args):
     if args.startDate:
         startDate = datetime.datetime.strptime(args.startDate, '%Y%m%d')
 
-    user = '####'
-    password = '####'
-    loader = Loader(user, password)
+    loader = Loader()
     for when in pd.date_range(startDate, endDate):
         if args.tableOverride:
             loader.saveTableHistory(when, tableOverride=args.tableOverride, uploadToBq=True)

@@ -2,7 +2,14 @@
 
 
 import yaml
+import os
+import subprocess
+import pandas as pd
 from mikesnowflake.access.snowFlakeAccess import SnowFlakeAccess
+
+# snowflake credentials
+USER = ''
+PASSWORD = ''
 
 
 def getNestedVals(searchObj):
@@ -34,12 +41,12 @@ def getYamlConfig(fileName):
         data = yaml.load(f, Loader=yaml.FullLoader)
     return data
 
-def getYamlDependencies(workSpace, repo='data-sustain-snowflake-etl', snowFlakeTables=None):
+def getYamlDependencies(workSpace, repo='data-sustain-snowflake-etl', snowFlakeTables=None, user=USER, password=PASSWORD):
     """
     """
-    sfa = SnowFlakeAccess()
 
     if not snowFlakeTables:
+        sfa = SnowFlakeAccess(user, password)
         snowFlakeTables = sfa.getTables()
 
     embeddedTableNames = {}  # this will be a dictionary of table names that contain themselves in other table names
