@@ -1086,3 +1086,4 @@
 1084|VIEWABILITY_TRAFFIC_SUM_HOURLY_FACT|ViewabilityTrafficReport|gcs|grid_viewability_traffic_sum_last_hour_loaded|data-sustain-snowflake-etl|data-sustain-snowflake-etl/jobs/odfi_etls/viewability_traffic_sum_hourly.yaml
 1085|VIEWABILITY_TRAFFIC_SUM_HOURLY_FACT||||data-sustain-snowflake-etl|data-sustain-snowflake-etl/vertica/python/rollup.yaml
 1086|VIEWABILITY_TRAFFIC_SUM_HOURLY_FACT|||grid_viewability_traffic_sum_last_hour_loaded|data-sustain-snowflake-etl|data-sustain-snowflake-etl/vertica/python/viewability_traffic_sum_hourly.yaml
+1087|OX_DEMAND_BID_LANDSCAPE_SUM_HOURLY_FACT|DemandBidLandscapeReport|gcs|grid_ox_demand_bid_landscape_sum_hourly_fact_last_hour_loaded|data-sustain-snowflake-etl|data-sustain-snowflake-etl/jobs/stopped_odfi_etls/demand_bid_landscape_sum_hourly.yaml
