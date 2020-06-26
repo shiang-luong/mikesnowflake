@@ -1,5 +1,6 @@
 import datetime
 from dateutil.parser import parse
+import logging
 import os
 import shutil
 import pandas as pd
@@ -78,8 +79,7 @@ class SnowFlakeAccess(object):
             list of str: a list of table names
         """
         fileName = os.path.join(self.cacheDir, 'schema', 'tables.csv')
-        if self.verbose:
-            print('reading files from %s' % fileName)
+        logging.info('reading files from %s' % fileName)
         df = pd.read_csv(fileName, sep='|', index_col=0)
 
         return sorted(df['TABLE_NAME'].tolist())

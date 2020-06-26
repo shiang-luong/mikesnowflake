@@ -1,6 +1,7 @@
 """this would backup schema tables and views"""
 import os
 import sys
+import logging
 
 PROJ_DIR = os.path.dirname(os.path.abspath(os.path.join(__file__, '..', '..')))
 sys.path.append(PROJ_DIR)
@@ -15,8 +16,11 @@ from mikesnowflake.util.yamlUtil import getYamlDependencies
 
 os.nice(20)
 
+USER = ''
+PASSWORD = ''
 
-def main(user, password):
+
+def main(user=USER, password=PASSWORD):
     """the main entry point to the script
 
     Args:
@@ -30,24 +34,22 @@ def main(user, password):
     sfa.updateSchema()
 
     # update yaml config dependencies
-    fileDir = os.path.join(sfa.cacheDir, 'jobs')
-    yamlFile = os.path.join(fileDir, 'yaml.csv')
+    yamlDir = os.path.join(sfa.cacheDir, 'jobs')
+    yamlFile = os.path.join(yamlDir, 'yaml.csv')
 
     td = datetime.datetime.today()
 
     # backup yaml config dependencies
-    newYamlFile = os.path.join(fileDir, 'yaml_%s.csv' % td.strftime('%Y%m%d%H%M'))
+    newYamlFile = os.path.join(yamlDir, 'yaml_%s.csv' % td.strftime('%Y%m%d%H%M'))
     cmd = 'cp %s %s' % (yamlFile, newYamlFile)
     shutil.copyfile(yamlFile, newYamlFile)
-    print("copied %s to %s" % (yamlFile, newYamlFile))
+    logging.info("copied %s to %s" % (yamlFile, newYamlFile))
 
-    workSpace='/Users/mike.herrera/workspace/'
-    df = getYamlDependencies(workspace)
+    df = getYamlDependencies(PROJ_DIR)
     df.to_csv(yamlFile, sep='|')
-    print('written yaml dependency to %s' % yamlFile)
+    logging.info('written yaml dependency to %s' % yamlFile)
 
 
 if __name__ == '__main__':
-    user = '#####'
-    password = '####'
-    main(user, password)
+    logging.getLogger().setLevel(logging.INFO)
+    main()
