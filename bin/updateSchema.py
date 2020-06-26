@@ -1,4 +1,5 @@
 """this would backup schema tables and views"""
+import argparse
 import os
 import sys
 import logging
@@ -16,18 +17,11 @@ from mikesnowflake.util.yamlUtil import getYamlDependencies
 
 os.nice(20)
 
-USER = ''
-PASSWORD = ''
 
-
-def main(user=USER, password=PASSWORD):
-    """the main entry point to the script
-
-    Args:
-        user(str): snowflake username
-        password(str): snowflake password
+def run(args):
     """
-    sfa = SnowFlakeAccess(user, password)
+    """
+    sfa = SnowFlakeAccess(args.user, args.password)
 
     # update tables and views
     sfa.backupSchema()
@@ -49,7 +43,17 @@ def main(user=USER, password=PASSWORD):
     df.to_csv(yamlFile, sep='|')
     logging.info('written yaml dependency to %s' % yamlFile)
 
+def main():
+    """
+    """
+    parser = argparse.ArgumentParser(description='SnowFlake update schema')
+    parser.add_argument("--user", default=None, help="SnowFlake user")
+    parser.add_argument("--password", default=None, help="SnowFlake password")
+    args = parser.parse_args()
+
+    logging.getLogger().setLevel(logging.INFO)
+    run(args)
+
 
 if __name__ == '__main__':
-    logging.getLogger().setLevel(logging.INFO)
     main()
