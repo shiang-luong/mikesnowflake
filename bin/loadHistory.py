@@ -1,5 +1,6 @@
 import os
 import sys
+import logging
 
 PROJ_DIR = os.path.dirname(os.path.abspath(os.path.join(__file__, '..', '..')))
 sys.path.append(PROJ_DIR)
@@ -20,15 +21,13 @@ PROJECT_ID = 'ox-data-devint'
 BUCKET_ID = 'snowflake2bigquery'
 DATASET_ID = 'snowflake_test'
 
-# snowflake credentials
-USER = ''
-PASSWORD = ''
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/Users/mike.herrera/.config/google/ox-data-devint-8fddac53cd8a.json'
 
 
 class Loader(object):
     """this is a loader from snowflake usage tables into bigquery"""
 
-    def __init__(self, user=USER, password=PASSWORD, projectId=PROJECT_ID, bucketId=BUCKET_ID, datasetId=DATASET_ID):
+    def __init__(self, user, password, projectId=PROJECT_ID, bucketId=BUCKET_ID, datasetId=DATASET_ID):
         """init"""
         self.__bqa = BqAccess()
         self.__sfa = SnowFlakeAccess(user, password)
@@ -85,7 +84,7 @@ class Loader(object):
     def saveTableHistory(self, when, tableOverride=None, uploadToBq=False):
         """
         """
-        print('pinging bq query history for %s' % when.date())
+        logging.info('pinging bq query history for %s' % when.date())
         inClause = ' OR '.join(["STRPOS(UPPER(query_text), '%s') != 0" % tableName for tableName in self.__snowFlakeTables])
         sql = ("SELECT query_date, user_name, query_type, query_id, query_text " +
                "FROM snowflake_test.query_history " +
@@ -95,12 +94,12 @@ class Loader(object):
         
         if tableOverride:
             tableNames = [tableOverride]
-            print('setting table names to %s' % tableNames)
+            logging.info('setting table names to %s' % tableNames)
         else:
             tableNames = self.__snowFlakeTables
-            print('setting table names to entire snowflake universe')   
+            logging.info('setting table names to entire snowflake universe')
 
-        print('iterating through query history to obtain table refs')
+        logging.info('iterating through query history to obtain table refs')
         data = []
         groupCols = ['user_name', 'query_id', 'query_type', 'query_text', 'query_date']
         for (user, query_id, query_type, query, dt), _ in queryHistory.groupby(groupCols):
@@ -120,7 +119,7 @@ class Loader(object):
                 if status:
                     data.append([dt, user, query_id, query_type, tableName])
         df = pd.DataFrame(data, columns=['QUERY_DATE', 'USER_NAME', 'QUERY_ID', 'QUERY_TYPE', 'TABLE_NAME'])
-        print('finished collecting table refs')
+        logging.info('finished collecting table refs')
 
         # cache to disk, load to gcs then into bq
         if uploadToBq:
@@ -130,14 +129,14 @@ class Loader(object):
             fileName = os.path.join(self.__cacheDir, baseName)
 
             df.to_csv(fileName, sep='|')
-            print('saved %s' % fileName)
+            logging.info('saved %s' % fileName)
 
-            print('uploading to gcs')
+            logging.info('uploading to gcs')
             blobName = os.path.join('mike_logs', 'table_history', baseName)
             uri = os.path.join('gs://', self.__bucketId, blobName)
             blob = self.__gcsBucket.blob(blobName)
             blob.upload_from_filename(fileName)
-            print('uploaded file to %s' % uri)
+            logging.info('uploaded file to %s' % uri)
 
             # delete previous entries in query history table (noting that tableOverride is only one entry)
             if tableOverride:
@@ -148,19 +147,19 @@ class Loader(object):
                 delSql = "DELETE FROM snowflake_test.table_history WHERE query_date = '%s' " % when.date()
 
             self.__bqa.rawQuery(delSql)
-            print(delSql)
+            logging.info(delSql)
 
             # load blob into bq using the query history job config
             load_job = self.__bqClient.load_table_from_uri(uri, self.__tableHistoryTable, job_config=self.__tableHistCfg)
-            print("Starting job %s " % load_job.job_id)
+            logging.info("Starting job %s " % load_job.job_id)
 
             load_job.result()  # Waits for table load to complete.
-            print("Job finished.")
+            logging.info("Job finished.")
 
     def saveQueryHistory(self, when):
         """
         """
-        print("pinging snowflake query history for %s" % when.date())
+        logging.info("pinging snowflake query history for %s" % when.date())
         startTime = when.replace(hour=0, minute=0, second=0, microsecond=0)
         endTime = when.replace(hour=23, minute=59, second=59)
         sql = ("SELECT DISTINCT DATABASE_NAME, SCHEMA_NAME, USER_NAME, ROLE_NAME, WAREHOUSE_NAME, " +
@@ -177,25 +176,25 @@ class Loader(object):
         baseName = 'queryHistory_%s.csv' % when.strftime('%Y%m%d')
         fileName = os.path.join(self.__cacheDir, baseName)
         df.to_csv(fileName, sep='|')
-        print('saved to file: %s' % fileName)
+        logging.info('saved to file: %s' % fileName)
 
-        print('uploading to gcs')
+        logging.info('uploading to gcs')
         blobName = os.path.join('mike_logs', 'query_history', baseName)
         uri = os.path.join('gs://', self.__bucketId, blobName)
         blob = self.__gcsBucket.blob(blobName)
         blob.upload_from_filename(fileName)
-        print('uploaded file to %s' % uri)
+        logging.info('uploaded file to %s' % uri)
 
         # delete previous entries in query history table
         delSql = "DELETE FROM snowflake_test.query_history WHERE query_date = '%s' " % when.date()
         self.__bqa.rawQuery(delSql)
-        print(delSql)
+        logging.info(delSql)
 
         # load blob into bq using the query history job config
         load_job = self.__bqClient.load_table_from_uri(uri, self.__queryHistoryTable, job_config=self.__queryHistCfg)
-        print("Starting job %s " % load_job.job_id)
+        logging.info("Starting job %s " % load_job.job_id)
         load_job.result()  # Waits for table load to complete.
-        print("Job finished.")
+        logging.info("Job finished.")
 
 
 def runLoad(args):
@@ -212,7 +211,7 @@ def runLoad(args):
     if args.startDate:
         startDate = datetime.datetime.strptime(args.startDate, '%Y%m%d')
 
-    loader = Loader()
+    loader = Loader(args.user, args.password)
     for when in pd.date_range(startDate, endDate):
         if args.tableOverride:
             loader.saveTableHistory(when, tableOverride=args.tableOverride, uploadToBq=True)
@@ -225,11 +224,14 @@ def main():  # pragma: no cover
     """
     """
     parser = argparse.ArgumentParser(description='SnowFlake query history to bq')
+    parser.add_argument("--user", default=None, help="SnowFlake user")
+    parser.add_argument("--password", default=None, help="SnowFlake password")
     parser.add_argument("--tableOverride", default=None, help="single table name to load into bq")
     parser.add_argument("--startDate", default=None, help="start date")
     parser.add_argument("--endDate", default=None, help="end date")
     args = parser.parse_args()
 
+    logging.getLogger().setLevel(logging.INFO)
     runLoad(args)
 
 
