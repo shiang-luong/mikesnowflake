@@ -114,20 +114,17 @@ class SnowFlakeAccess(object):
 
         # refresh view file, including business intelligence view info
         sql = "show views in prod.businessintelligence"
-        if self.verbose:
-            print(sql)
+        logging.info(sql)
         biViews = self.rawQuery(sql)
 
         sql = "show views in prod.mstr_datamart"
-        if self.verbose:
-            print(sql)
+        logging.info(sql)
         views = self.rawQuery(sql)
         views = views.append(biViews, ignore_index=True)
 
         viewFile = os.path.join(schemaDir, 'views.csv')
         views.to_csv(viewFile, sep='|')
-        if self.verbose:
-            print('live view schema saved to %s' % viewFile)
+        logging.info('live view schema saved to %s' % viewFile)
 
         # refresh table file, incuding views from business intelligence
         sql = ("SELECT DISTINCT table_name " +
@@ -135,12 +132,10 @@ class SnowFlakeAccess(object):
                "WHERE table_schema = 'MSTR_DATAMART' " +
                "AND TABLE_NAME not in ('TEST', 'TS') " +
                "ORDER BY table_name")
-        if self.verbose:
-            print(sql)
+        logging.info(sql)
         tables = self.rawQuery(sql)
         tables = pd.DataFrame(pd.concat([tables['TABLE_NAME'], biViews['name']])).rename(columns={0: 'TABLE_NAME'}).reset_index(drop=True)
 
         tableFile = os.path.join(schemaDir, 'tables.csv')
         tables.to_csv(tableFile, sep='|')
-        if self.verbose:
-            print('live table schema saved to %s' % tableFile)
+        logging.info('live table schema saved to %s' % tableFile)
