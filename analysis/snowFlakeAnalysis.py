@@ -1,6 +1,7 @@
 """this is snowflake analysis"""
 
 
+import logging
 import os
 from glob import glob
 import pandas as pd
@@ -34,8 +35,7 @@ class SnowFlakeAnalysis(object):
             I'm sure that there's a python library to parse github repos. However, I didn't feel like creating it. So instead, I locally
             downloaded them and used them as references in file paths.
         """
-        if verbose:
-            print('initializing snowflake analysis')
+        logging.info('initializing snowflake analysis')
         self.startDate = startDate
         self.endDate = endDate
         self.excludeEtl = excludeEtl
@@ -43,13 +43,14 @@ class SnowFlakeAnalysis(object):
 
         # these are the main query types that would register any real usage to a system
         self.queryTypes = {'insert': ['INSERT', 'UPDATE', 'UNKNOWN',  'DELETE', 'COPY', 'MERGE', 'SET',
-                                      'UNLOAD', 'BEGIN_TRANSACTION', 'TRUNCATE_TABLE',],
+                                      'UNLOAD', 'BEGIN_TRANSACTION', 'TRUNCATE_TABLE','PUT_FILES', 'REMOVE_FILES'],
                            'select': ['SELECT', 'CREATE_TABLE_AS_SELECT'],
                            'admin': ['CREATE', 'CREATE_TABLE', 'ALTER', 'GRANT', 'REVOKE', 'DROP',
                                      'CREATE_TASK', 'ALTER_TABLE_MODIFY_COLUMN', 'ALTER_TABLE_ADD_COLUMN',
                                      'RENAME_TABLE', 'ALTER_TABLE', 'ALTER_MATERIALIZED_VIEW_LIFECYCLE',
                                      'USE', 'RECLUSTER', 'ALTER_TABLE_DROP_CLUSTERING_KEY',
-                                     'ALTER_SESSION', 'RESTORE'],
+                                     'ALTER_SESSION', 'RESTORE',
+                                     'CREATE_CONSTRAINT', 'GET_FILES', 'LIST_FILES'],
                            'describe': ['DESCRIBE_QUERY', 'DESCRIBE', 'SHOW',]}
         ca = ColorAccess()
         cols = [col for columns in self.queryTypes.values() for col in columns]
@@ -60,57 +61,38 @@ class SnowFlakeAnalysis(object):
         self.snowFlakeTables = self.sfa.getTables()
         self.snowFlakeViewDefs = self.sfa.getViews()
         self.snowFlakeViews = self.snowFlakeViewDefs['name'].tolist()
-        if verbose:
-            print('obtained snowflake tables and views')
+        logging.info('obtained snowflake tables and views')
 
         self.bqa = BqAccess()
 
-        if verbose and excludeEtl:
-            print("excluding SNOWFLAKE_PROD_ETL user from select statements.")
+        if excludeEtl:
+            logging.info("excluding SNOWFLAKE_PROD_ETL user from select statements.")
 
         # there are snowflake tables that are being unloaded into GCS. We make a note of them here.
         self.gcsTables = self.__getGcsTables()
-        if verbose:
-            print('obtained gcs table and view names')
+        logging.info('obtained gcs table and view names')
 
         # we reorder the query types that have the biggest impact
-        if verbose:
-            print('obtaining hit breakdown')
+        logging.info('obtaining hit breakdown')
         self.hitBreakdown = self.__getHitBreakdown()
 
-        if verbose:
-            print('getting yaml info')
+        logging.info('getting yaml info')
         self.yamlInfo = self.__getYamlInfo()
 
-        # get all dep graphs
-        if verbose:
-            print('getting job dependency directed graph of dependent table names')
-        self.jobGraph = self.__getJobDepGraph()
-
-        if verbose:
-            print('created view directed graph of dependent table names')
+        logging.info('created view directed graph of dependent table names')
         self.viewGraph = self.__getViewDepGraph()
 
         # create directed graph of views and dependent tables
-        if verbose:
-            print('created rollup directed graph of dependent table names')
+        logging.info('created rollup directed graph of dependent table names')
         self.rollupGraph = self.__getRollupGraph()
 
         # create total table dependency graph
-        if verbose:
-            print('created total table dependency graph')
-        self.tableGraph = nx.compose(nx.compose(self.jobGraph, self.viewGraph), self.rollupGraph)
-        if verbose:
-            print('calculating tablename dependency degrees')
+        logging.info('created total table dependency graph')
+        self.tableGraph = nx.compose(self.viewGraph, self.rollupGraph)
+        logging.info('calculating tablename dependency degrees')
         self.tableDegrees = pd.Series(dict(self.tableGraph.degree())).reindex(self.snowFlakeTables).fillna(0)
 
-        if verbose:
-            print('getting cronjob count by table')
-        self.jobCount = self.yamlInfo.groupby(['table_name', 'job'])['job'].count().unstack()
-        self.jobCount = self.jobCount.reindex(self.snowFlakeTables).fillna(0)
-
-        if verbose:
-            print('init complete')
+        logging.info('init complete')
 
     def __getRollupGraph(self):
         """this will return a graph of table names associated with rullup processes
@@ -215,7 +197,7 @@ class SnowFlakeAnalysis(object):
         allCols = [col for columns in self.queryTypes.values() for col in columns]
         missingCols = [c for c in df.columns if c not in allCols]
         if len(missingCols) > 0:
-            raise ValueError('the following columns were not classified. %s' % missingCols)
+            raise ValueError('the following columns were not classified. Please update your view definitions as well\n %s' % missingCols)
 
         # we create tallies for the various queryType categories
         for category, columns in self.queryTypes.items():
@@ -260,12 +242,8 @@ class SnowFlakeAnalysis(object):
     def __getYamlInfo(self):
         """
         """
-        jobFile = os.path.join(self.sfa.cacheDir, 'jobs', 'jobs.csv')
-        jobs = pd.read_csv(jobFile, sep='|').set_index('yaml_file')
-
         yamlFile = os.path.join(self.sfa.cacheDir, 'jobs', 'yaml.csv')
         yaml = pd.read_csv(yamlFile, sep='|', index_col=0)
-        yaml['job'] = yaml['file'].apply(lambda x: jobs.loc[x, 'job'] if x in jobs.index else np.nan)
 
         return yaml
 
@@ -281,15 +259,34 @@ class SnowFlakeAnalysis(object):
                     "OR user_name != 'SNOWFLAKE_PROD_ETL') ")
         sql += "GROUP BY query_date, query_type "
 
-        df = self.bqa.rawQuery(sql).pivot(index='query_date', columns='query_type', values='hits')
-        df.columns.name = None
+        df = self.bqa.rawQuery(sql)
+        return df
 
-        # format column order using queryType definitions (inserts first, then selects, then admins, then describes)
-        cols = [col for columns in self.queryTypes.values() for col in columns if col in df.columns]
+    def getUsageHistory(self, tableName, queryTypeGroup):
+        """this will get you a user history for a given table and query type sql commands.
 
-        # normalize date range for easier visualization comparison
-        df = df[cols].reindex(pd.date_range(self.startDate, self.endDate)).fillna(0)
+        Args:
+            tableName(str): the name of the table for which you want to observe user history
+            queryTypeGroup(str): 'insert', 'select', 'admin', 'describe'. See notes.
 
+        Returns
+            DataFrame: a stacked data frame of results. See notes.
+
+        Notes:
+            The resulting data frame will contain the following fields (based on what you use for queryTypeGroup)::
+
+                query_type: the query types associated with query group (see the dictionary self.queryTypes)
+                query_date: the date of the query_type
+                user_name: the user who made the query
+                hits: the count of distinct hits by query_type, query_date and user_name
+        """
+        sql = ("SELECT query_type, query_date, user_name, hits " +
+               "FROM snowflake_test.v_%s_usage " % queryTypeGroup +
+               "WHERE query_date between '%s' and '%s' " % (self.startDate.date(), self.endDate.date()) +
+               "AND table_name = '%s' " % tableName +
+               "ORDER BY query_date")
+
+        df = self.bqa.rawQuery(sql)
         return df
 
     def printDropCommands(self, tableList):
@@ -334,21 +331,3 @@ class SnowFlakeAnalysis(object):
         if tableName in viewDefs.index:
             return viewDefs.loc[tableName, 'text']
         return None
-
-    def __getJobDepGraph(self):
-        """
-        """        
-        jobNames = self.yamlInfo['job'].dropna()
-        df = self.yamlInfo.loc[self.yamlInfo['job'].isin(jobNames), ['job','table_name']]
-
-        G = nx.DiGraph() 
-        for i in df.index: 
-            job = df.loc[i, 'job']
-            tableName = df.loc[i, 'table_name']
-            if job not in G.nodes():
-                G.add_node(job)
-            if tableName not in G.nodes():
-                G.add_node(tableName)
-            G.add_edge(tableName, job)
-
-        return G
