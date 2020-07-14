@@ -2,6 +2,7 @@
 
 
 import yaml
+import logging
 import os
 import subprocess
 import pandas as pd
@@ -41,7 +42,7 @@ def getYamlConfig(fileName):
         data = yaml.load(f, Loader=yaml.FullLoader)
     return data
 
-def getYamlDependencies(workSpace, repo='data-sustain-snowflake-etl', snowFlakeTables=None, user=USER, password=PASSWORD):
+def getYamlDependencies(workSpace, snowFlakeTables=None, user=USER, password=PASSWORD):
     """
     """
 
@@ -57,7 +58,8 @@ def getYamlDependencies(workSpace, repo='data-sustain-snowflake-etl', snowFlakeT
                     embeddedTableNames[t1] = []
                 embeddedTableNames[t1].append(t2)    
 
-    gitDir = os.path.join(workSpace, repo)
+    gitSustainDir = os.path.join(workSpace, 'data-sustain-snowflake-etl')
+    gitWheelsDir = os.path.join(workSpace, 'data-sustain-snowflake-wheels')
     res = []
     for tableName in snowFlakeTables:
         # special handling for DOWNLOAD_STATE table, since it's not yet in git but is a prod
@@ -66,7 +68,7 @@ def getYamlDependencies(workSpace, repo='data-sustain-snowflake-etl', snowFlakeT
             yamlFiles = ['SnowflakeToGCS/BidPerformanceReport/scripts.yaml',
                          'SnowflakeToGCS/load_state.yaml']
             for yamlFile in yamlFiles:
-                print('**SPECIAL CASE** %s found in %s' % (tableName, yamlFile))
+                logging.warning('**SPECIAL CASE** %s found in %s' % (tableName, yamlFile))
                 res.append([tableName, 'BidPerformance', 'gcs', None, 'SnowflakeToGCS', yamlFile])
 
             # these tables are also part of one of the configs
@@ -76,7 +78,7 @@ def getYamlDependencies(workSpace, repo='data-sustain-snowflake-etl', snowFlakeT
                            'PUBLISHER_DIM']
             for otherTable in otherTables:
                 yamlFile = 'SnowflakeToGCS/BidPerformanceReport/scripts.yaml'
-                print('**SPECIAL CASE** %s found in %s' % (otherTable, yamlFile))
+                logging.warning('**SPECIAL CASE** %s found in %s' % (otherTable, yamlFile))
                 res.append([otherTable, 'BidPerformance', 'gcs', None, 'SnowflakeToGCS', yamlFile])
 
             continue
@@ -84,29 +86,29 @@ def getYamlDependencies(workSpace, repo='data-sustain-snowflake-etl', snowFlakeT
         # that references it.
         if tableName == 'MONITOR_SF_LOAD':
             pyFile = 'data-sustain-snowflake-wheels/py-salesforce-pull/ox_dw_snowflake_salesforce_pull/settings.py'
-            print('**SPECIAL CASE** %s found in %s' % (tableName, pyFile))
+            logging.warning('**SPECIAL CASE** %s found in %s' % (tableName, pyFile))
             res.append([tableName, None, None, None, 'data-sustain-snowflake-wheels', pyFile])            
 
-        cmd = ['grep', tableName, '-l', '-i', '-R', '%s' % gitDir]
+        cmd = ['grep', tableName, '-l', '-i', '-R', '%s' % gitSustainDir]
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
         out = p.communicate()[0].decode().split('\n')
         yamlFiles = sorted(list(set(f for f in out if f.endswith('.yaml'))))
 
         # salesforce tables reference the env yaml file. So we use the sample env file as a proxy.
         if tableName.startswith('SF_'):
-            yamlFile = os.path.join(gitDir, 'conf', 'env.sample.yaml')
+            yamlFile = os.path.join(gitSustainDir, 'conf', 'env.sample.yaml')
             yamlFiles.append(yamlFile)
             yamlFiles = sorted(set(yamlFiles))
 
         # content topic tables use a config that's not a part of the default repo. So we manually append. 
         if tableName.startswith('CONTENT_TOPIC'):
-            yamlFile = os.path.join(workSpace, 'data-sustain-snowflake-wheels', 'py-odfi-etl',
+            yamlFile = os.path.join(gitWheelsDir, 'py-odfi-etl',
                                     'ox_dw_snowflake_odfi_etl', 'app_config', 'content_topics.yaml')
             yamlFiles.append(yamlFile)
 
         # rollup_queue uses a config that's not a part of the default repo. So we manually append. 
         if tableName =='ROLLUP_QUEUE':
-            yamlFile = os.path.join(workSpace, 'data-sustain-snowflake-wheels', 'py-odfi-etl',
+            yamlFile = os.path.join(gitWheelsDir, 'py-odfi-etl',
                                     'ox_dw_snowflake_odfi_etl', 'app_config', 'rollup.yaml')
             yamlFiles.append(yamlFile)
 
@@ -149,7 +151,7 @@ def getYamlDependencies(workSpace, repo='data-sustain-snowflake-etl', snowFlakeT
                     yamlFile = yamlFile.replace(workSpace, '')
                     yamlRepo = yamlFile.split('/')[0]
                     res.append([tableName, feedName, feedLocation, loadStateVar, yamlRepo, yamlFile])
-                    print('%s found in %s' % (tableName, yamlFile))
+                    logging.info('%s found in %s' % (tableName, yamlFile))
     cols = ['table_name', 'feed_name', 'feed_location', 'load_state_var', 'repo', 'file']
     df = pd.DataFrame(res, columns=cols)
 

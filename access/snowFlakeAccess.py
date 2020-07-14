@@ -1,5 +1,6 @@
 import datetime
 from dateutil.parser import parse
+import logging
 import os
 import shutil
 import pandas as pd
@@ -78,8 +79,7 @@ class SnowFlakeAccess(object):
             list of str: a list of table names
         """
         fileName = os.path.join(self.cacheDir, 'schema', 'tables.csv')
-        if self.verbose:
-            print('reading files from %s' % fileName)
+        logging.info('reading files from %s' % fileName)
         df = pd.read_csv(fileName, sep='|', index_col=0)
 
         return sorted(df['TABLE_NAME'].tolist())
@@ -114,20 +114,17 @@ class SnowFlakeAccess(object):
 
         # refresh view file, including business intelligence view info
         sql = "show views in prod.businessintelligence"
-        if self.verbose:
-            print(sql)
+        logging.info(sql)
         biViews = self.rawQuery(sql)
 
         sql = "show views in prod.mstr_datamart"
-        if self.verbose:
-            print(sql)
+        logging.info(sql)
         views = self.rawQuery(sql)
         views = views.append(biViews, ignore_index=True)
 
         viewFile = os.path.join(schemaDir, 'views.csv')
         views.to_csv(viewFile, sep='|')
-        if self.verbose:
-            print('live view schema saved to %s' % viewFile)
+        logging.info('live view schema saved to %s' % viewFile)
 
         # refresh table file, incuding views from business intelligence
         sql = ("SELECT DISTINCT table_name " +
@@ -135,12 +132,10 @@ class SnowFlakeAccess(object):
                "WHERE table_schema = 'MSTR_DATAMART' " +
                "AND TABLE_NAME not in ('TEST', 'TS') " +
                "ORDER BY table_name")
-        if self.verbose:
-            print(sql)
+        logging.info(sql)
         tables = self.rawQuery(sql)
         tables = pd.DataFrame(pd.concat([tables['TABLE_NAME'], biViews['name']])).rename(columns={0: 'TABLE_NAME'}).reset_index(drop=True)
 
         tableFile = os.path.join(schemaDir, 'tables.csv')
         tables.to_csv(tableFile, sep='|')
-        if self.verbose:
-            print('live table schema saved to %s' % tableFile)
+        logging.info('live table schema saved to %s' % tableFile)
